@@ -1,6 +1,11 @@
 const express = require('express')
 const app = express()
+const morgan = require('morgan')
+const cors = require('cors')
+app.use(cors())
 app.use(express.json())
+
+
 
 let phoneNumbers = [
     {
@@ -25,6 +30,7 @@ let phoneNumbers = [
     }
 ]
 
+//get endpoints 
 app.get('/', (req, res) => {
     res.send('<h1>Hell from Victor</h1>')
 })
@@ -51,19 +57,16 @@ app.get('/info', (req, res) => {
     res.send(`<p>Phone has info for ${info} people</p><p>${currentDate}</p>`)
 })
 
+
+//delete endpoint
 app.delete('/api/persons/:id', (request, response) => {
     const id = Number(request.params.id)
     phoneNumbers = phoneNumbers.filter(p => p.id !== id)
     response.status(204).end
 })
 
-const generatedId = () => {
-    const maxId = phoneNumbers.length > 0 ? Math.max(...phoneNumbers.map(p => p.id)) : 0
-    const randomId = phoneNumbers.length > 0 ? Math.floor(Math.random() * 1000) + 1 : 0
 
-    return randomId + 1
-}
-
+//post endpoint
 app.post('/api/persons', (request, response) => {
     const body = request.body
 
@@ -88,9 +91,31 @@ app.post('/api/persons', (request, response) => {
     response.json(person)
 })
 
+//morgan
 
 
-const PORT = 3001
+const customLogger = (tokens, req, res) => {
+    return [
+        tokens.method(req, res),
+        tokens.url(req, res),
+        tokens.status(req, res),
+        ' - ',
+        tokens['reponse-time', (req, res)],
+        ' ms'
+    ].join(' ')
+}
+app.use(morgan(customLogger))
+
+
+//other function for functionality
+const generatedId = () => {
+    const maxId = phoneNumbers.length > 0 ? Math.max(...phoneNumbers.map(p => p.id)) : 0
+    const randomId = phoneNumbers.length > 0 ? Math.floor(Math.random() * 1000) + 1 : 0
+
+    return randomId + 1
+}
+
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
-    console.log('Server running')
+    console.log('Server running', PORT)
 })
