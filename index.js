@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const app = express()
 const morgan = require('morgan')
@@ -7,7 +8,9 @@ app.use(express.json())
 app.use(express.static('dist'))
 
 
-
+//MongoDB
+const PhoneNumber = require('./models/phonenumber')
+/*
 let phoneNumbers = [
     {
         name: "Ada Lovelace",
@@ -30,15 +33,16 @@ let phoneNumbers = [
         id: 4
     }
 ]
-
+*/
 //get endpoints 
 app.get('/', (req, res) => {
     res.send('<h1>Hell from Victor</h1>')
 })
 
 app.get('/api/persons', (req, res) => {
-    generatedId()
-    res.json(phoneNumbers)
+    PhoneNumber.find({}).then(x => {
+        res.json(x)
+    })
 })
 
 app.get('/api/persons/:id', (req, res) => {
@@ -77,19 +81,17 @@ app.post('/api/persons', (request, response) => {
         return response.status(400).json({
             error: 'content missing'
         })
-    } else if (phoneNumbers.some((p) => p.name === body.name)) {
-        return response.status(400).json({
-            error: 'name must be unique'
-        })
     }
 
-    const person = {
+    const person = new PhoneNumber({
         name: body.name,
-        number: body.number,
-        id: generatedId(),
-    }
-    phoneNumbers = phoneNumbers.concat(person)
-    response.json(person)
+        number: body.number || false,
+    })
+
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    })
+
 })
 
 //morgan
@@ -109,14 +111,8 @@ app.use(morgan(customLogger))
 
 
 //other function for functionality
-const generatedId = () => {
-    const maxId = phoneNumbers.length > 0 ? Math.max(...phoneNumbers.map(p => p.id)) : 0
-    const randomId = phoneNumbers.length > 0 ? Math.floor(Math.random() * 1000) + 1 : 0
 
-    return randomId + 1
-}
-
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
     console.log('Server running', PORT)
 })
