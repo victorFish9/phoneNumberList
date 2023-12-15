@@ -1,39 +1,43 @@
-require('dotenv').config()
 const express = require('express')
 const app = express()
-const morgan = require('morgan')
 const cors = require('cors')
-app.use(cors())
-app.use(express.json())
-app.use(express.static('dist'))
+require('dotenv').config()
+const morgan = require('morgan')
+
 
 
 //MongoDB
 const PhoneNumber = require('./models/phonenumber')
-/*
-let phoneNumbers = [
-    {
-        name: "Ada Lovelace",
-        number: "39-44-5323523",
-        id: 1
-    },
-    {
-        name: "Mary Poppendieck",
-        number: "39-23-6423122",
-        id: 2
-    },
-    {
-        name: "Arto Hellas",
-        number: "39-44-5323523",
-        id: 3
-    },
-    {
-        name: "Victor",
-        number: "1234",
-        id: 4
+const { Phone } = require('@mui/icons-material')
+
+//request logger for error handling
+const requestLogger = (request, response, next) => {
+    console.log('Method: ', request.method)
+    console.log('Path: ', request.path)
+    console.log('Body: ', request.body)
+    console.log('---')
+    next()
+}
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    if (error.name === 'CastError') {
+        return response.status(400).send({ error: 'malformatted id' })
     }
-]
-*/
+
+    next(error)
+}
+
+const unknowEndpoint = (request, response) => {
+    response.status(400).send({ error: 'unknown endpoint' })
+}
+
+app.use(cors())
+app.use(express.json())
+app.use(requestLogger)
+app.use(express.static('dist'))
+
 //get endpoints 
 app.get('/', (req, res) => {
     res.send('<h1>Hell from Victor</h1>')
@@ -45,14 +49,16 @@ app.get('/api/persons', (req, res) => {
     })
 })
 
-app.get('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id)
-    const person = phoneNumbers.find(person => person.id === id)
-    if (person) {
-        res.json(person)
-    } else {
-        res.status(400).end()
-    }
+app.get('/api/persons/:id', (req, res, next) => {
+    PhoneNumber.findById(req.params.id)
+        .then(x => {
+            if (x) {
+                res.json(x)
+            } else {
+                res.status(404).end()
+            }
+        })
+        .catch(error => next(error))
 })
 
 app.get('/info', (req, res) => {
@@ -64,14 +70,16 @@ app.get('/info', (req, res) => {
 
 
 //delete endpoint
-app.delete('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    phoneNumbers = phoneNumbers.filter(p => p.id !== id)
-    response.status(204).end
+app.delete('/api/persons/:id', (request, response, next) => {
+    PhoneNumber.findByIdAndDelete(request.params.id)
+        .then(result => {
+            response.status(204).end()
+        })
+        .catch(error => next(error))
 })
 
 
-//post endpoint
+//post and put endpoint
 app.post('/api/persons', (request, response) => {
     const body = request.body
 
@@ -94,7 +102,19 @@ app.post('/api/persons', (request, response) => {
 
 })
 
-//morgan
+app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body
+    const person = {
+        name: body.name,
+        number: body.number
+    }
+    PhoneNumber.findByIdAndUpdate(request.params.id, person, { new: true })
+        .then(updatePerson => {
+            response.json(updatePerson)
+        })
+        .catch(error => next(error))
+})
+
 
 
 const customLogger = (tokens, req, res) => {
@@ -109,8 +129,8 @@ const customLogger = (tokens, req, res) => {
 }
 app.use(morgan(customLogger))
 
-
-//other function for functionality
+app.use(errorHandler)
+app.use(unknowEndpoint)
 
 const PORT = process.env.PORT
 app.listen(PORT, () => {
